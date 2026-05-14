@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>情绪之镜 · 纯净语音（无Emoji）</title>
+    <title>情绪之镜 · 面部框修复（原始工作逻辑）</title>
     <style>
         * {
             margin: 0;
@@ -95,14 +95,14 @@
             object-fit: cover;
         }
 
+        /* CRITICAL: Only video is flipped, canvas has NO transform */
         .camera-feed video {
             transform: scaleX(-1);
         }
 
-        .camera-feed canvas {
-            transform: scaleX(-1);
-        }
+        .camera-feed canvas {}
 
+        /* no transform */
         .expression-label {
             background: #11151fdd;
             backdrop-filter: blur(8px);
@@ -365,7 +365,7 @@
             <button id="selectEnglish" class="lang-btn">🇬🇧 English</button>
             <button id="selectChinese" class="lang-btn">🇨🇳 中文</button>
         </div>
-        <div class="lang-note">🗣️ 纯净语音 · 无Emoji干扰<br>📸 需要摄像头权限</div>
+        <div class="lang-note">🗣️ 面部框基于原始工作代码 · 双语标签<br>📸 需要摄像头权限</div>
     </div>
 
     <div class="main-container" style="display: none;" id="mainApp">
@@ -428,7 +428,7 @@
             </div>
             <div id="performanceFeedback">💬 等待第一次指令...</div>
         </div>
-        <div style="font-size: 11px; text-align: center; margin-top: 15px; opacity:0.7;">艺术项目: “技术的情绪生命” — 所有TTS文本无Emoji
+        <div style="font-size: 11px; text-align: center; margin-top: 15px; opacity:0.7;">艺术项目: “技术的情绪生命” — 面部框使用原始精确算法
         </div>
     </div>
 
@@ -437,6 +437,8 @@
         let currentLang = 'en';
         let selectedVoice = null;
         let ttsEnabled = false;
+
+        const emotionZh = { happy: '快乐', sad: '悲伤', angry: '愤怒', disgusted: '厌恶', neutral: '中性' };
 
         const texts = {
             en: {
@@ -469,7 +471,6 @@
             }
         };
 
-        // ========== PHRASES WITHOUT EMOJIS ==========
         const requestPools = {
             en: [
                 { emotion: 'happy', phrase: "Smile for me! I need your happiness. Make me feel adored.", gaugeKey: 'happy' },
@@ -506,7 +507,7 @@
             return JSON.parse(JSON.stringify(pool[Math.floor(Math.random() * pool.length)]));
         }
 
-        // ========== SIMPLE TTS - NO EMOJIS IN SOURCE ==========
+        // ========== TTS ==========
         async function loadVoices() {
             return new Promise((resolve) => {
                 if (window.speechSynthesis.getVoices().length) resolve();
@@ -588,7 +589,7 @@
             disgusted: { sx: Q_SIZE, sy: Q_SIZE, sw: Q_SIZE, sh: Q_SIZE }
         };
         let compositeImg = new Image(), imgLoaded = false, imgError = false;
-        const avatarCanvas = document.getElementById('avatarCanvas'), avCtx = avatarCanvas.getContext('2d');
+        const avatarCanvasElem = document.getElementById('avatarCanvas'), avCtx = avatarCanvasElem.getContext('2d');
         function drawAvatar(emotion) {
             if (!imgLoaded || !compositeImg.complete) { avCtx.fillStyle = "#2a1e3a"; avCtx.fillRect(0, 0, 200, 200); avCtx.fillStyle = "#ff88bb"; avCtx.fillText("loading...", 70, 100); return; }
             if (imgError) { avCtx.fillStyle = "#550000"; avCtx.fillRect(0, 0, 200, 200); avCtx.fillStyle = "#ff9999"; avCtx.fillText("image error", 65, 100); return; }
@@ -687,7 +688,6 @@
                 matchedFrames: 0,
             };
             activeReq = reqObj;
-            // Visual bubble shows emojis (they are in the HTML, not in the TTS text)
             dom.speechBubble.innerHTML = `💬✨ "${newReq.phrase}" ✨💬`;
             dom.demandText.innerText = `${newReq.emotion.toUpperCase()} → ${newReq.phrase.substring(0, 40)}...`;
             drawAvatar(newReq.emotion);
@@ -729,71 +729,113 @@
             if (gameActive && !activeReq) startNewRequest();
         }
 
-        // ========== FACE DETECTION ==========
+        // ========== FACE DETECTION (EXACTLY FROM ORIGINAL WORKING CODE) ==========
         const video = document.getElementById('video');
         const overlayCanvas = document.getElementById('overlayCanvas');
         const overlayCtx = overlayCanvas.getContext('2d');
+        const liveExpressionSpanDom = document.getElementById('liveExpressionLabel');
+
         async function startCamera() {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 360, facingMode: "user" } });
-            video.srcObject = stream;
-            await new Promise(r => video.onloadedmetadata = r);
-            video.play();
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 360, facingMode: "user" } });
+                video.srcObject = stream;
+                await new Promise(resolve => video.onloadedmetadata = resolve);
+                video.play();
+            } catch (e) { console.error(e); }
         }
-        async function loadModels() {
-            const url = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
-            await faceapi.nets.tinyFaceDetector.loadFromUri(url);
-            await faceapi.nets.faceExpressionNet.loadFromUri(url);
+
+        async function loadFaceModels() {
+            const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+            await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+            await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
         }
-        function startDetection() {
-            const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.35 });
-            async function detect() {
-                if (!video.videoWidth) { requestAnimationFrame(detect); return; }
-                if (overlayCanvas.width !== video.videoWidth || overlayCanvas.height !== video.videoHeight) {
-                    overlayCanvas.width = video.videoWidth;
-                    overlayCanvas.height = video.videoHeight;
-                }
-                overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+        function getEmotionColor(emotion) {
+            switch (emotion) {
+                case 'happy': return '#4cd964';
+                case 'sad': return '#3a86ff';
+                case 'angry': return '#ff4d4d';
+                case 'disgusted': return '#e5b567';
+                default: return '#ff66b5';
+            }
+        }
+
+        async function startSingleFaceDetection() {
+            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.35 });
+            async function detectFrame() {
+                if (video.readyState !== 4) { requestAnimationFrame(detectFrame); return; }
                 try {
-                    const det = await faceapi.detectSingleFace(video, opts).withFaceExpressions();
-                    if (det && det.expressions) {
-                        const exp = det.expressions;
-                        let maxE = 'neutral', maxV = 0;
-                        for (let [k, v] of Object.entries(exp)) if (v > maxV) { maxV = v; maxE = k; }
-                        const conf = Math.floor(maxV * 100);
-                        document.getElementById('liveExpressionLabel').innerHTML = `🎭 ${maxE.toUpperCase()} ${conf}% | ${currentLang === 'zh' ? 'AI注视中' : 'AI watches'}`;
-                        dom.yourEmotion.innerText = maxE;
+                    const singleDetection = await faceapi.detectSingleFace(video, options).withFaceExpressions();
+
+                    // Match canvas size to video dimensions
+                    if (overlayCanvas.width !== video.videoWidth || overlayCanvas.height !== video.videoHeight) {
+                        overlayCanvas.width = video.videoWidth;
+                        overlayCanvas.height = video.videoHeight;
+                    }
+
+                    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+                    if (singleDetection) {
+                        const expressions = singleDetection.expressions;
+                        let maxEmotion = 'neutral', maxValue = 0;
+                        for (const [exp, val] of Object.entries(expressions)) {
+                            if (val > maxValue) { maxValue = val; maxEmotion = exp; }
+                        }
+                        const confidencePercent = Math.round(maxValue * 100);
+                        const emotionEn = maxEmotion.toUpperCase();
+                        const emotionZhText = emotionZh[maxEmotion] || '未知';
+                        const displayText = `${emotionEn} ${emotionZhText} ${confidencePercent}%`;
+                        liveExpressionSpanDom.innerHTML = `🎭 ${displayText} | ${currentLang === 'zh' ? 'AI注视中' : 'AI watches'}`;
+                        dom.yourEmotion.innerText = maxEmotion;
+
+                        // Update active request (emotion tracking)
                         if (activeReq && activeReq.active && activeReq.startTime) {
                             activeReq.totalFrames = (activeReq.totalFrames || 0) + 1;
                             let match = false;
-                            if (activeReq.target === 'happy' && maxE === 'happy') match = true;
-                            else if (activeReq.target === 'sad' && maxE === 'sad') match = true;
-                            else if (activeReq.target === 'angry' && maxE === 'angry') match = true;
-                            else if (activeReq.target === 'disgusted' && maxE === 'disgusted') match = true;
+                            if (activeReq.target === 'happy' && maxEmotion === 'happy') match = true;
+                            else if (activeReq.target === 'sad' && maxEmotion === 'sad') match = true;
+                            else if (activeReq.target === 'angry' && maxEmotion === 'angry') match = true;
+                            else if (activeReq.target === 'disgusted' && maxEmotion === 'disgusted') match = true;
                             if (match) activeReq.matchedFrames = (activeReq.matchedFrames || 0) + 1;
                         }
-                        const box = det.detection.box;
-                        const mirX = overlayCanvas.width - (box.x + box.width);
-                        let color = "#ff66b5";
-                        if (maxE === 'disgusted') color = "#e5b567";
-                        else if (maxE === 'happy') color = "#4cd964";
-                        else if (maxE === 'sad') color = "#3a86ff";
-                        else if (maxE === 'angry') color = "#ff4d4d";
+
+                        // Resize detection to actual video dimensions (critical)
+                        const detectionResized = faceapi.resizeResults(singleDetection, { width: video.videoWidth, height: video.videoHeight });
+                        const originalBox = detectionResized.detection.box;
+
+                        // Mirror horizontally because video is CSS flipped, canvas is NOT flipped
+                        const mirroredX = overlayCanvas.width - (originalBox.x + originalBox.width);
+                        const mirroredY = originalBox.y;
+                        const mirroredWidth = originalBox.width;
+                        const mirroredHeight = originalBox.height;
+
+                        const color = getEmotionColor(maxEmotion);
+
+                        // Draw bounding box
                         overlayCtx.strokeStyle = color;
                         overlayCtx.lineWidth = 3;
-                        overlayCtx.strokeRect(mirX, box.y, box.width, box.height);
-                        overlayCtx.fillStyle = color + "40";
-                        overlayCtx.fillRect(mirX, box.y, box.width, box.height);
-                        overlayCtx.font = "bold 20px monospace";
+                        overlayCtx.strokeRect(mirroredX, mirroredY, mirroredWidth, mirroredHeight);
+                        overlayCtx.fillStyle = color + "30";
+                        overlayCtx.fillRect(mirroredX, mirroredY, mirroredWidth, mirroredHeight);
+
+                        // Draw bilingual text label with background
+                        overlayCtx.font = "bold 16px 'Courier New', 'Noto Sans CJK SC'";
+                        const textWidth = overlayCtx.measureText(displayText).width;
+                        const labelX = mirroredX + 5;
+                        const labelY = mirroredY - 6;
                         overlayCtx.fillStyle = color;
-                        overlayCtx.fillText(`${maxE.toUpperCase()} ${conf}%`, mirX + 8, box.y - 6);
+                        overlayCtx.fillRect(labelX - 2, labelY - 18, textWidth + 8, 22);
+                        overlayCtx.fillStyle = "#000";
+                        overlayCtx.fillText(displayText, labelX, labelY);
+
                     } else {
-                        document.getElementById('liveExpressionLabel').innerHTML = texts[currentLang].noFace;
+                        liveExpressionSpanDom.innerHTML = texts[currentLang].noFace;
                         dom.yourEmotion.innerText = "none";
                     }
-                } catch (e) { }
-                requestAnimationFrame(detect);
+                } catch (err) { console.warn(err); }
+                requestAnimationFrame(detectFrame);
             }
-            detect();
+            detectFrame();
         }
 
         // ========== BOOTSTRAP ==========
@@ -819,8 +861,8 @@
             document.getElementById('mainApp').style.display = 'block';
             try {
                 await startCamera();
-                await loadModels();
-                startDetection();
+                await loadFaceModels();
+                startSingleFaceDetection();
                 gameActive = true;
                 setTimeout(() => resetGame(), 500);
             } catch (e) { alert("需要摄像头权限 / Camera required."); }
