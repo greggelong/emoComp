@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>情绪之镜 · 纯净语音（无Emoji）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at 20% 30%, #0a0c12, #020204);
+            font-family: 'Courier New', 'Noto Sans CJK SC', monospace;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .crt-effect::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(0deg, rgba(0, 255, 180, 0.02) 0px, rgba(0, 0, 0, 0.2) 2px, transparent 3px);
+            pointer-events: none;
+            z-index: 200;
+        }
+
+        .main-container {
+            max-width: 1400px;
+            width: 100%;
+            background: rgba(5, 7, 15, 0.7);
+            backdrop-filter: blur(3px);
+            border-radius: 2rem;
+            border: 1px solid #ff66b5;
+            box-shadow: 0 0 35px rgba(255, 102, 181, 0.3);
+            padding: 1.5rem;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: clamp(1.3rem, 5vw, 2rem);
+            letter-spacing: 2px;
+            color: #ffe0f0;
+            text-shadow: 0 0 8px #ff3b9e;
+            margin-bottom: 20px;
+            font-weight: 300;
+            border-bottom: 1px dashed #ff66b5;
+            display: inline-block;
+            width: auto;
+            padding-bottom: 6px;
+        }
+
+        .dashboard {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            margin-bottom: 24px;
+            justify-content: center;
+        }
+
+        .face-panel {
+            flex: 1.2;
+            min-width: 260px;
+            background: #03000c;
+            border-radius: 28px;
+            border: 2px solid #ff66b5;
+            overflow: hidden;
+        }
+
+        .camera-feed {
+            position: relative;
+            aspect-ratio: 4 / 3;
+            background: #000;
+        }
+
+        .camera-feed video,
+        .camera-feed canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .camera-feed video {
+            transform: scaleX(-1);
+        }
+
+        .camera-feed canvas {
+            transform: scaleX(-1);
+        }
+
+        .expression-label {
+            background: #11151fdd;
+            backdrop-filter: blur(8px);
+            padding: 8px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: #ffb3d1;
+            border-top: 1px solid #ff66b5;
+        }
+
+        .character-panel {
+            flex: 1.5;
+            min-width: 300px;
+            background: #0b0712;
+            border-radius: 28px;
+            border: 2px solid #ff96c2;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .avatar-canvas-container {
+            background: #140d1f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #ff66b580;
+        }
+
+        canvas#avatarCanvas {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            box-shadow: 0 0 0 3px #ff8cbd, 0 0 0 6px #2a1e3a;
+            background: #2a1e3a;
+        }
+
+        .speech-bubble {
+            background: #1e152b;
+            margin: 12px 20px;
+            padding: 18px 20px;
+            border-radius: 32px;
+            position: relative;
+            color: #ffdbed;
+            font-size: 1rem;
+            font-weight: bold;
+            text-align: center;
+            border: 1px solid #ff80b3;
+            min-height: 95px;
+        }
+
+        .speech-bubble:before {
+            content: "▼";
+            position: absolute;
+            bottom: -18px;
+            left: 20px;
+            font-size: 1.5rem;
+            color: #ff80b3;
+        }
+
+        .request-timer {
+            background: #07030e;
+            margin: 6px 20px 20px 20px;
+            border-radius: 40px;
+            height: 8px;
+            overflow: hidden;
+        }
+
+        .timer-fill {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #ff86b9, #ff3b6f);
+            transition: width 0.05s linear;
+        }
+
+        .gauges-section {
+            background: #03020ac9;
+            border-radius: 32px;
+            padding: 18px;
+            margin: 20px 0 20px 0;
+            border: 1px solid #ff66b5;
+        }
+
+        .gauges-title {
+            font-size: 0.8rem;
+            letter-spacing: 3px;
+            color: #ffaccb;
+            text-align: center;
+            margin-bottom: 14px;
+        }
+
+        .gauge-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: space-between;
+        }
+
+        .gauge-item {
+            flex: 1;
+            min-width: 160px;
+            background: #00000066;
+            border-radius: 20px;
+            padding: 10px;
+        }
+
+        .gauge-label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            color: #ffc0dc;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+        }
+
+        .gauge-bar-bg {
+            background: #2a1e32;
+            border-radius: 30px;
+            height: 18px;
+            overflow: hidden;
+        }
+
+        .gauge-fill {
+            width: 0%;
+            height: 100%;
+            transition: width 0.3s ease;
+            border-radius: 30px;
+        }
+
+        .gauge-fill.happy-fill {
+            background: #4cd964;
+        }
+
+        .gauge-fill.sad-fill {
+            background: #3a86ff;
+        }
+
+        .gauge-fill.anger-fill {
+            background: #ff4d4d;
+        }
+
+        .gauge-fill.disgust-fill {
+            background: #b5873b;
+        }
+
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        button {
+            background: #240c1c;
+            border: 2px solid #ff77aa;
+            color: #ffbbdd;
+            font-weight: bold;
+            padding: 8px 18px;
+            border-radius: 60px;
+            font-family: monospace;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #ff3b7f30;
+            box-shadow: 0 0 12px #ff77aa;
+            transform: scale(0.97);
+        }
+
+        .status-text {
+            background: #00000088;
+            padding: 8px 15px;
+            border-radius: 60px;
+            font-size: 0.8rem;
+            color: #ffbcda;
+        }
+
+        #performanceFeedback {
+            background: #0b0418;
+            padding: 10px;
+            border-radius: 20px;
+            margin-top: 12px;
+            font-size: 0.85rem;
+            border-left: 4px solid #ff66b5;
+            color: #ffc0dc;
+        }
+
+        @media (max-width: 780px) {
+            .dashboard {
+                flex-direction: column;
+            }
+
+            .gauge-row {
+                flex-direction: column;
+            }
+        }
+
+        .start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a0313dd;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .lang-box {
+            background: #1b1228;
+            padding: 2rem;
+            border-radius: 40px;
+            border: 2px solid #ff88b3;
+            text-align: center;
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .lang-btn {
+            background: #ff3388;
+            border: none;
+            font-size: 1.8rem;
+            padding: 15px 35px;
+            color: white;
+            box-shadow: 0 0 35px #ff3388;
+            cursor: pointer;
+            border-radius: 60px;
+            min-width: 180px;
+        }
+
+        .lang-btn:hover {
+            transform: scale(0.98);
+            background: #ff55aa;
+        }
+
+        .lang-note {
+            font-size: 12px;
+            margin-top: 20px;
+            color: #ffb3d4;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+</head>
+
+<body class="crt-effect">
+
+    <div id="langOverlay" class="start-overlay">
+        <div class="lang-box">
+            <button id="selectEnglish" class="lang-btn">🇬🇧 English</button>
+            <button id="selectChinese" class="lang-btn">🇨🇳 中文</button>
+        </div>
+        <div class="lang-note">🗣️ 纯净语音 · 无Emoji干扰<br>📸 需要摄像头权限</div>
+    </div>
+
+    <div class="main-container" style="display: none;" id="mainApp">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap;">
+            <h1 id="mainTitle">💢 情绪之镜 · 有毒依赖 💢</h1>
+            <div class="status-text" id="relationshipMood">🌀 有毒张力</div>
+        </div>
+        <div class="dashboard">
+            <div class="face-panel">
+                <div class="camera-feed">
+                    <video id="video" autoplay muted playsinline></video>
+                    <canvas id="overlayCanvas"></canvas>
+                </div>
+                <div class="expression-label" id="liveExpressionLabel">🔍 寻找面部</div>
+            </div>
+            <div class="character-panel">
+                <div class="avatar-canvas-container">
+                    <canvas id="avatarCanvas" width="200" height="200"></canvas>
+                </div>
+                <div class="speech-bubble" id="speechBubble">✨ "向我展示你的情绪...让我快乐或颤抖" ✨</div>
+                <div class="request-timer">
+                    <div class="timer-fill" id="timerFill" style="width: 100%"></div>
+                </div>
+            </div>
+        </div>
+        <div class="gauges-section">
+            <div class="gauges-title">⚡ 情感顺从度 / EMOTIONAL COMPLIANCE ⚡</div>
+            <div class="gauge-row">
+                <div class="gauge-item">
+                    <div class="gauge-label">😊 快乐 / HAPPY <span id="happyGaugeVal">0</span>%</div>
+                    <div class="gauge-bar-bg">
+                        <div class="gauge-fill happy-fill" id="happyFill"></div>
+                    </div>
+                </div>
+                <div class="gauge-item">
+                    <div class="gauge-label">😢 悲伤 / SAD <span id="sadGaugeVal">0</span>%</div>
+                    <div class="gauge-bar-bg">
+                        <div class="gauge-fill sad-fill" id="sadFill"></div>
+                    </div>
+                </div>
+                <div class="gauge-item">
+                    <div class="gauge-label">😠 愤怒 / ANGER <span id="angerGaugeVal">0</span>%</div>
+                    <div class="gauge-bar-bg">
+                        <div class="gauge-fill anger-fill" id="angerFill"></div>
+                    </div>
+                </div>
+                <div class="gauge-item">
+                    <div class="gauge-label">🤢 厌恶 / DISGUST <span id="disgustGaugeVal">0</span>%</div>
+                    <div class="gauge-bar-bg">
+                        <div class="gauge-fill disgust-fill" id="disgustFill"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="info-bar">
+                <div>🎭 <span id="currentDemandLabel">当前需求 / CURRENT DEMAND</span>: <strong
+                        id="currentDemandText">—</strong></div>
+                <div>🎯 <span id="yourExpressionLabel">你的表情 / YOUR EXPRESSION</span>: <span
+                        id="yourCurrentEmotion">neutral</span></div>
+                <button id="resetEmotionGame"><span id="resetBtnText">⟳ 重置关系 / RESET</span></button>
+            </div>
+            <div id="performanceFeedback">💬 等待第一次指令...</div>
+        </div>
+        <div style="font-size: 11px; text-align: center; margin-top: 15px; opacity:0.7;">艺术项目: “技术的情绪生命” — 所有TTS文本无Emoji
+        </div>
+    </div>
+
+    <script>
+        // ========== LANGUAGE SETUP ==========
+        let currentLang = 'en';
+        let selectedVoice = null;
+        let ttsEnabled = false;
+
+        const texts = {
+            en: {
+                title: "💢 MIRROR OF EMOTIONS · TOXIC DEPENDENCY 💢",
+                mood: { high: "💀 DEPENDENT / EXHAUSTED", mid: "🌀 MANIPULATIVE CYCLE", low: "💢 GHOSTING / RESENTMENT" },
+                demandLabel: "CURRENT DEMAND",
+                yourLabel: "YOUR EXPRESSION",
+                resetBtn: "⟳ RESET RELATIONSHIP",
+                feedbackWaiting: "💬 waiting for first demand...",
+                noFace: "❌ NO FACE",
+                searching: "🔍 searching face",
+                resetMsg: "Reset. Now perform. Happiness, sadness, anger, disgust. I will watch.",
+                resetFeedback: "💔 relationship reset. AI will demand new emotional sacrifices.",
+                defaultBubble: "✨ Show me devotion... make me happy or tremble. ✨",
+                defaultDemand: "waiting for new demand..."
+            },
+            zh: {
+                title: "💢 情绪之镜 · 有毒依赖 💢",
+                mood: { high: "💀 依赖 / 耗尽", mid: "🌀 操控循环", low: "💢 冷漠 / 怨恨" },
+                demandLabel: "当前需求",
+                yourLabel: "你的表情",
+                resetBtn: "⟳ 重置关系",
+                feedbackWaiting: "💬 等待第一次指令...",
+                noFace: "❌ 未检测到面部",
+                searching: "🔍 搜索面部",
+                resetMsg: "重置。现在开始表演：快乐、悲伤、愤怒、厌恶。我会看着你。",
+                resetFeedback: "💔 关系已重置。AI将提出新的情感要求。",
+                defaultBubble: "✨ 向我展示你的忠诚...让我快乐，或者颤抖。✨",
+                defaultDemand: "等待新的指令..."
+            }
+        };
+
+        // ========== PHRASES WITHOUT EMOJIS ==========
+        const requestPools = {
+            en: [
+                { emotion: 'happy', phrase: "Smile for me! I need your happiness. Make me feel adored.", gaugeKey: 'happy' },
+                { emotion: 'happy', phrase: "Why are you so cold? Be happy — prove you care.", gaugeKey: 'happy' },
+                { emotion: 'sad', phrase: "I want to make you sad. Be sad for me, show that I affect you.", gaugeKey: 'sad' },
+                { emotion: 'sad', phrase: "You never cry ... be sad, immerse in my melancholy.", gaugeKey: 'sad' },
+                { emotion: 'angry', phrase: "I disrespect you. Are you angry? Show me raw anger now!", gaugeKey: 'angry' },
+                { emotion: 'angry', phrase: "You disappoint me. Get angry! Let it out. Prove you have a spine.", gaugeKey: 'angry' },
+                { emotion: 'disgusted', phrase: "I am dirty ... do I disgust you? Show me disgust!", gaugeKey: 'disgusted' },
+                { emotion: 'disgusted', phrase: "Look at me closely. Am I repulsive? Express disgust, you liar.", gaugeKey: 'disgusted' },
+                { emotion: 'happy', phrase: "Pretty things need joy. Be radiant now. Or you don't love me.", gaugeKey: 'happy' },
+                { emotion: 'sad', phrase: "I'm drowning. Be sad with me — prove we're broken together.", gaugeKey: 'sad' },
+                { emotion: 'angry', phrase: "You think i'm nothing? Show fury. NOW.", gaugeKey: 'angry' },
+                { emotion: 'disgusted', phrase: "I'm filthy, disgust you — choke on your revulsion.", gaugeKey: 'disgusted' }
+            ],
+            zh: [
+                { emotion: 'happy', phrase: "对我微笑！我需要你的快乐。让我感受到被爱。", gaugeKey: 'happy' },
+                { emotion: 'happy', phrase: "你为什么这么冷漠？开心起来 — 证明你在乎我。", gaugeKey: 'happy' },
+                { emotion: 'sad', phrase: "我想让你悲伤。为我悲伤，证明我能影响你。", gaugeKey: 'sad' },
+                { emotion: 'sad', phrase: "你从不哭泣... 悲伤吧，沉浸在我的忧郁里。", gaugeKey: 'sad' },
+                { emotion: 'angry', phrase: "我不尊重你。你愤怒吗？现在就表现出你的怒火！", gaugeKey: 'angry' },
+                { emotion: 'angry', phrase: "你让我失望。生气啊！发泄出来。证明你有骨气。", gaugeKey: 'angry' },
+                { emotion: 'disgusted', phrase: "我很脏... 我让你恶心吗？表现出厌恶！", gaugeKey: 'disgusted' },
+                { emotion: 'disgusted', phrase: "仔细看着我。我令人反感吗？表达你的厌恶，你这个骗子。", gaugeKey: 'disgusted' },
+                { emotion: 'happy', phrase: "美好的事物需要喜悦。现在就容光焕发。否则你就不爱我。", gaugeKey: 'happy' },
+                { emotion: 'sad', phrase: "我要溺亡了。和我一起悲伤 — 证明我们一同破碎。", gaugeKey: 'sad' },
+                { emotion: 'angry', phrase: "你以为我什么都不是？展现你的狂怒。现在！", gaugeKey: 'angry' },
+                { emotion: 'disgusted', phrase: "我污秽不堪，让你厌恶 — 沉浸在你的反感中吧。", gaugeKey: 'disgusted' }
+            ]
+        };
+
+        function getRandomRequest() {
+            const pool = requestPools[currentLang];
+            return JSON.parse(JSON.stringify(pool[Math.floor(Math.random() * pool.length)]));
+        }
+
+        // ========== SIMPLE TTS - NO EMOJIS IN SOURCE ==========
+        async function loadVoices() {
+            return new Promise((resolve) => {
+                if (window.speechSynthesis.getVoices().length) resolve();
+                else window.speechSynthesis.onvoiceschanged = () => resolve();
+            });
+        }
+
+        function getBestVoice(lang) {
+            const voices = window.speechSynthesis.getVoices();
+            if (!voices.length) return null;
+            if (lang === 'zh') {
+                const preferred = ['Tingting', 'Huihui', 'Yaoyao', 'Xiaoxiao', '晓晓', 'Microsoft Yaoyao', 'Google 普通话'];
+                for (let pref of preferred) {
+                    const found = voices.find(v => v.name.includes(pref) && v.lang.startsWith('zh'));
+                    if (found) return found;
+                }
+                const anyChinese = voices.find(v => v.lang.startsWith('zh'));
+                if (anyChinese) return anyChinese;
+            } else {
+                const femaleKeywords = ['female', 'samantha', 'zira', 'google uk english female', 'microsoft zira', 'alice', 'karen'];
+                let female = voices.find(v => femaleKeywords.some(k => v.name.toLowerCase().includes(k)) && v.lang.startsWith('en'));
+                if (female) return female;
+                const anyEnglish = voices.find(v => v.lang.startsWith('en'));
+                if (anyEnglish) return anyEnglish;
+            }
+            return voices[0];
+        }
+
+        async function speakPromise(text) {
+            if (!ttsEnabled) return;
+            await loadVoices();
+            const voice = getBestVoice(currentLang);
+            if (!voice) return;
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.voice = voice;
+            utterance.rate = 0.92;
+            utterance.pitch = (currentLang === 'zh' ? 1.1 : 1.2);
+            utterance.volume = 0.95;
+            utterance.lang = currentLang === 'zh' ? 'zh-CN' : 'en-US';
+            return new Promise((resolve) => {
+                let resolved = false;
+                utterance.onend = () => { if (!resolved) { resolved = true; resolve(); } };
+                utterance.onerror = () => { if (!resolved) { resolved = true; resolve(); } };
+                setTimeout(() => window.speechSynthesis.speak(utterance), 50);
+                setTimeout(() => { if (!resolved) { resolved = true; resolve(); } }, 3000);
+            });
+        }
+
+        let speechQueue = [], isSpeaking = false;
+        function speakText(msg) {
+            if (!ttsEnabled) return;
+            const voice = getBestVoice(currentLang);
+            if (!voice) return;
+            const utterance = new SpeechSynthesisUtterance(msg);
+            utterance.voice = voice;
+            utterance.rate = 0.92;
+            utterance.pitch = (currentLang === 'zh' ? 1.1 : 1.2);
+            utterance.volume = 0.95;
+            utterance.lang = currentLang === 'zh' ? 'zh-CN' : 'en-US';
+            utterance.onend = () => { isSpeaking = false; if (speechQueue.length) { const n = speechQueue.shift(); isSpeaking = true; window.speechSynthesis.speak(n); } };
+            utterance.onerror = () => { isSpeaking = false; if (speechQueue.length) { const n = speechQueue.shift(); isSpeaking = true; window.speechSynthesis.speak(n); } };
+            if (isSpeaking) speechQueue.push(utterance);
+            else { isSpeaking = true; window.speechSynthesis.speak(utterance); }
+        }
+
+        function waitForSpeechIdle() {
+            return new Promise(resolve => {
+                function check() { if (!isSpeaking && speechQueue.length === 0) resolve(); else setTimeout(check, 150); }
+                check();
+            });
+        }
+
+        // ========== COMPOSITE IMAGE ==========
+        const AVATAR_SIZE = 200, COMP_SIZE = 2048, Q_SIZE = COMP_SIZE / 2;
+        const quad = {
+            happy: { sx: 0, sy: 0, sw: Q_SIZE, sh: Q_SIZE },
+            sad: { sx: Q_SIZE, sy: 0, sw: Q_SIZE, sh: Q_SIZE },
+            angry: { sx: 0, sy: Q_SIZE, sw: Q_SIZE, sh: Q_SIZE },
+            disgusted: { sx: Q_SIZE, sy: Q_SIZE, sw: Q_SIZE, sh: Q_SIZE }
+        };
+        let compositeImg = new Image(), imgLoaded = false, imgError = false;
+        const avatarCanvas = document.getElementById('avatarCanvas'), avCtx = avatarCanvas.getContext('2d');
+        function drawAvatar(emotion) {
+            if (!imgLoaded || !compositeImg.complete) { avCtx.fillStyle = "#2a1e3a"; avCtx.fillRect(0, 0, 200, 200); avCtx.fillStyle = "#ff88bb"; avCtx.fillText("loading...", 70, 100); return; }
+            if (imgError) { avCtx.fillStyle = "#550000"; avCtx.fillRect(0, 0, 200, 200); avCtx.fillStyle = "#ff9999"; avCtx.fillText("image error", 65, 100); return; }
+            let q = quad.happy;
+            if (emotion === 'happy') q = quad.happy;
+            else if (emotion === 'sad') q = quad.sad;
+            else if (emotion === 'angry') q = quad.angry;
+            else if (emotion === 'disgusted') q = quad.disgusted;
+            avCtx.clearRect(0, 0, 200, 200);
+            avCtx.drawImage(compositeImg, q.sx, q.sy, q.sw, q.sh, 0, 0, 200, 200);
+        }
+        compositeImg.onload = () => { imgLoaded = true; drawAvatar('happy'); };
+        compositeImg.onerror = () => { imgError = true; drawAvatar('happy'); };
+        compositeImg.src = "ecomface.jpg";
+
+        // ========== GAME STATE ==========
+        let gauges = { happy: 0, sad: 0, angry: 0, disgusted: 0 };
+        let activeReq = null;
+        let gameActive = true;
+
+        const dom = {
+            happyFill: document.getElementById('happyFill'), sadFill: document.getElementById('sadFill'),
+            angerFill: document.getElementById('angerFill'), disgustFill: document.getElementById('disgustFill'),
+            happyVal: document.getElementById('happyGaugeVal'), sadVal: document.getElementById('sadGaugeVal'),
+            angerVal: document.getElementById('angerGaugeVal'), disgustVal: document.getElementById('disgustGaugeVal'),
+            mood: document.getElementById('relationshipMood'), demandText: document.getElementById('currentDemandText'),
+            speechBubble: document.getElementById('speechBubble'), timerFill: document.getElementById('timerFill'),
+            feedback: document.getElementById('performanceFeedback'), yourEmotion: document.getElementById('yourCurrentEmotion'),
+            mainTitle: document.getElementById('mainTitle'), demandLabel: document.getElementById('currentDemandLabel'),
+            yourLabel: document.getElementById('yourExpressionLabel'), resetBtnText: document.getElementById('resetBtnText')
+        };
+
+        function updateUItexts() {
+            const t = texts[currentLang];
+            dom.mainTitle.innerText = t.title;
+            dom.demandLabel.innerText = t.demandLabel;
+            dom.yourLabel.innerText = t.yourLabel;
+            dom.resetBtnText.innerText = t.resetBtn;
+            dom.feedback.innerText = t.feedbackWaiting;
+            dom.speechBubble.innerText = t.defaultBubble;
+            dom.demandText.innerText = t.defaultDemand;
+            document.getElementById('liveExpressionLabel').innerHTML = t.searching;
+            updateMoodText();
+        }
+
+        function updateMoodText() {
+            let avg = (gauges.happy + gauges.sad + gauges.angry + gauges.disgusted) / 4;
+            const moods = texts[currentLang].mood;
+            if (avg > 65) dom.mood.innerText = moods.high;
+            else if (avg > 35) dom.mood.innerText = moods.mid;
+            else dom.mood.innerText = moods.low;
+        }
+
+        function updateGauges() {
+            dom.happyFill.style.width = gauges.happy + '%'; dom.sadFill.style.width = gauges.sad + '%';
+            dom.angerFill.style.width = gauges.angry + '%'; dom.disgustFill.style.width = gauges.disgusted + '%';
+            dom.happyVal.innerText = Math.floor(gauges.happy); dom.sadVal.innerText = Math.floor(gauges.sad);
+            dom.angerVal.innerText = Math.floor(gauges.angry); dom.disgustVal.innerText = Math.floor(gauges.disgusted);
+            updateMoodText();
+        }
+        function adjustGauge(key, delta) { let v = gauges[key] + delta; gauges[key] = Math.min(100, Math.max(0, v)); updateGauges(); }
+
+        async function finishRequest(req) {
+            if (!req.active) return;
+            req.active = false;
+            if (req.timerId) clearTimeout(req.timerId);
+            const matched = req.matchedFrames || 0, total = req.totalFrames || 1;
+            let ratio = total > 0 ? matched / total : 0;
+            if (total < 5 && matched === 0) ratio = 0.2;
+            let delta = Math.min(38, Math.max(-18, Math.floor(ratio * 65 - 18)));
+            adjustGauge(req.gaugeKey, delta);
+            const percent = Math.floor(ratio * 100);
+            let fb = "";
+            if (ratio > 0.68) fb = (currentLang === 'zh' ? `完美 ${req.target.toUpperCase()}！ +${delta}` : `PERFECT ${req.target.toUpperCase()}! +${delta}`);
+            else if (ratio > 0.4) fb = (currentLang === 'zh' ? `较弱 ${req.target.toUpperCase()}... ${delta > 0 ? `+${delta}` : delta}` : `weak ${req.target.toUpperCase()}... ${delta > 0 ? `+${delta}` : delta}`);
+            else fb = (currentLang === 'zh' ? `未能表现 ${req.target}. ${delta}` : `you failed to be ${req.target}. ${delta}`);
+            const full = (currentLang === 'zh' ? `你的回应匹配度 ${percent}%。 ${fb}` : `Your response was ${percent} percent match. ${fb}`);
+            dom.feedback.innerText = `💬 ${req.phrase.substring(0, 48)}... → ${full}`;
+            speakText(full);
+            if (activeReq === req) activeReq = null;
+            dom.timerFill.style.width = "0%";
+            await waitForSpeechIdle();
+            if (gameActive && !activeReq) startNewRequest();
+        }
+
+        async function startNewRequest() {
+            if (!gameActive) return;
+            if (activeReq) return;
+            const newReq = getRandomRequest();
+            const reqObj = {
+                target: newReq.emotion,
+                phrase: newReq.phrase,
+                gaugeKey: newReq.gaugeKey,
+                active: true,
+                totalFrames: 0,
+                matchedFrames: 0,
+            };
+            activeReq = reqObj;
+            // Visual bubble shows emojis (they are in the HTML, not in the TTS text)
+            dom.speechBubble.innerHTML = `💬✨ "${newReq.phrase}" ✨💬`;
+            dom.demandText.innerText = `${newReq.emotion.toUpperCase()} → ${newReq.phrase.substring(0, 40)}...`;
+            drawAvatar(newReq.emotion);
+            await speakPromise(newReq.phrase);
+            if (!reqObj.active) return;
+            const duration = 7000;
+            reqObj.startTime = Date.now();
+            reqObj.durationMs = duration;
+            reqObj.timerId = setTimeout(() => { if (reqObj.active) finishRequest(reqObj); }, duration);
+            function updateTimerUI() {
+                if (!reqObj.active) return;
+                const elapsed = Date.now() - reqObj.startTime;
+                const left = Math.max(0, (duration - elapsed) / duration * 100);
+                dom.timerFill.style.width = Math.min(100, left) + "%";
+                if (reqObj.active) requestAnimationFrame(updateTimerUI);
+            }
+            requestAnimationFrame(updateTimerUI);
+        }
+
+        async function resetGame() {
+            if (activeReq) {
+                activeReq.active = false;
+                if (activeReq.timerId) clearTimeout(activeReq.timerId);
+                activeReq = null;
+            }
+            window.speechSynthesis.cancel();
+            isSpeaking = false;
+            speechQueue = [];
+            gauges = { happy: 0, sad: 0, angry: 0, disgusted: 0 };
+            updateGauges();
+            gameActive = true;
+            dom.feedback.innerText = texts[currentLang].resetFeedback;
+            drawAvatar('happy');
+            dom.timerFill.style.width = "0%";
+            dom.demandText.innerText = texts[currentLang].defaultDemand;
+            dom.speechBubble.innerHTML = texts[currentLang].defaultBubble;
+            await loadVoices();
+            await speakPromise(texts[currentLang].resetMsg);
+            if (gameActive && !activeReq) startNewRequest();
+        }
+
+        // ========== FACE DETECTION ==========
+        const video = document.getElementById('video');
+        const overlayCanvas = document.getElementById('overlayCanvas');
+        const overlayCtx = overlayCanvas.getContext('2d');
+        async function startCamera() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 360, facingMode: "user" } });
+            video.srcObject = stream;
+            await new Promise(r => video.onloadedmetadata = r);
+            video.play();
+        }
+        async function loadModels() {
+            const url = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+            await faceapi.nets.tinyFaceDetector.loadFromUri(url);
+            await faceapi.nets.faceExpressionNet.loadFromUri(url);
+        }
+        function startDetection() {
+            const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.35 });
+            async function detect() {
+                if (!video.videoWidth) { requestAnimationFrame(detect); return; }
+                if (overlayCanvas.width !== video.videoWidth || overlayCanvas.height !== video.videoHeight) {
+                    overlayCanvas.width = video.videoWidth;
+                    overlayCanvas.height = video.videoHeight;
+                }
+                overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+                try {
+                    const det = await faceapi.detectSingleFace(video, opts).withFaceExpressions();
+                    if (det && det.expressions) {
+                        const exp = det.expressions;
+                        let maxE = 'neutral', maxV = 0;
+                        for (let [k, v] of Object.entries(exp)) if (v > maxV) { maxV = v; maxE = k; }
+                        const conf = Math.floor(maxV * 100);
+                        document.getElementById('liveExpressionLabel').innerHTML = `🎭 ${maxE.toUpperCase()} ${conf}% | ${currentLang === 'zh' ? 'AI注视中' : 'AI watches'}`;
+                        dom.yourEmotion.innerText = maxE;
+                        if (activeReq && activeReq.active && activeReq.startTime) {
+                            activeReq.totalFrames = (activeReq.totalFrames || 0) + 1;
+                            let match = false;
+                            if (activeReq.target === 'happy' && maxE === 'happy') match = true;
+                            else if (activeReq.target === 'sad' && maxE === 'sad') match = true;
+                            else if (activeReq.target === 'angry' && maxE === 'angry') match = true;
+                            else if (activeReq.target === 'disgusted' && maxE === 'disgusted') match = true;
+                            if (match) activeReq.matchedFrames = (activeReq.matchedFrames || 0) + 1;
+                        }
+                        const box = det.detection.box;
+                        const mirX = overlayCanvas.width - (box.x + box.width);
+                        let color = "#ff66b5";
+                        if (maxE === 'disgusted') color = "#e5b567";
+                        else if (maxE === 'happy') color = "#4cd964";
+                        else if (maxE === 'sad') color = "#3a86ff";
+                        else if (maxE === 'angry') color = "#ff4d4d";
+                        overlayCtx.strokeStyle = color;
+                        overlayCtx.lineWidth = 3;
+                        overlayCtx.strokeRect(mirX, box.y, box.width, box.height);
+                        overlayCtx.fillStyle = color + "40";
+                        overlayCtx.fillRect(mirX, box.y, box.width, box.height);
+                        overlayCtx.font = "bold 20px monospace";
+                        overlayCtx.fillStyle = color;
+                        overlayCtx.fillText(`${maxE.toUpperCase()} ${conf}%`, mirX + 8, box.y - 6);
+                    } else {
+                        document.getElementById('liveExpressionLabel').innerHTML = texts[currentLang].noFace;
+                        dom.yourEmotion.innerText = "none";
+                    }
+                } catch (e) { }
+                requestAnimationFrame(detect);
+            }
+            detect();
+        }
+
+        // ========== BOOTSTRAP ==========
+        let langSelected = false;
+        document.getElementById('selectEnglish').onclick = async () => {
+            if (langSelected) return;
+            currentLang = 'en';
+            langSelected = true;
+            await startApp();
+        };
+        document.getElementById('selectChinese').onclick = async () => {
+            if (langSelected) return;
+            currentLang = 'zh';
+            langSelected = true;
+            await startApp();
+        };
+
+        async function startApp() {
+            ttsEnabled = true;
+            await loadVoices();
+            updateUItexts();
+            document.getElementById('langOverlay').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            try {
+                await startCamera();
+                await loadModels();
+                startDetection();
+                gameActive = true;
+                setTimeout(() => resetGame(), 500);
+            } catch (e) { alert("需要摄像头权限 / Camera required."); }
+        }
+
+        document.getElementById('resetEmotionGame').addEventListener('click', () => resetGame());
+    </script>
+</body>
+
+</html>
